@@ -102,7 +102,12 @@
     <script>
         // --- API Configuration ---
         const MODEL_NAME = "gemini-2.5-flash-image-preview";
-        const API_KEY = "AIzaSyB3l5psaG1b-KDZOtZLcplPEQHr8muvIFg"; // Canvas will automatically provide the key if this is an empty string
+        
+        // --- IMPORTANT FIX FOR GITHUB PAGES / PUBLIC HOSTING ---
+        // The previous empty key works only in the platform environment.
+        // YOU MUST REPLACE "YOUR_GEMINI_API_KEY_HERE" WITH YOUR ACTUAL KEY.
+        const API_KEY = "AIzaSyB3l5psaG1b-KDZOtZLcplPEQHr8muvIFg"; 
+        
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
         const MAX_RETRIES = 5;
 
@@ -192,6 +197,13 @@
          */
         async function handleGenerate(mode) {
             clearStatus();
+            
+            // --- CRITICAL CHECK FOR PUBLIC DEPLOYMENT ---
+            if (API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
+                showMessage("API Key Missing: Please edit your index.html file and replace 'YOUR_GEMINI_API_KEY_HERE' with your actual Gemini API key to fix the 403 error.", 'error');
+                return;
+            }
+
 
             if (!base64Image) {
                 showMessage("Please upload a cloth image first.", 'error');
