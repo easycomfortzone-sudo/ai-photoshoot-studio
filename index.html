@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI E-Commerce Photoshoot Generator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font family -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .container {
+            min-height: 100vh;
+        }
+        /* Custom spinner style */
+        .loader {
+            border-top-color: #3b82f6;
+            animation: spinner 1s linear infinite;
+        }
+        @keyframes spinner {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto container shadow-xl rounded-2xl bg-white p-6 md:p-10">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">AI Product Photoshoot Studio</h1>
+        <p class="text-lg text-gray-500 mb-8">Upload your product image, describe your ideal shot, and let the AI create professional e-commerce photos (like Amazon/Flipkart).</p>
+
+        <!-- Main Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Control Panel (Column 1) -->
+            <div class="lg:col-span-1 space-y-6">
+
+                <!-- 1. Image Upload -->
+                <div class="bg-gray-50 p-6 rounded-xl border border-dashed border-gray-300">
+                    <label for="fileInput" class="block text-sm font-medium text-gray-700 mb-2">1. Upload Raw Cloth Image</label>
+                    <input type="file" id="fileInput" accept="image/*" class="w-full text-sm text-gray-600
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-full file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100" onchange="previewImage()">
+                    <div id="imagePreviewContainer" class="mt-4 hidden">
+                        <p class="text-xs text-gray-500 mb-2">Original Image Preview:</p>
+                        <img id="imagePreview" class="w-full max-h-48 object-contain rounded-lg border border-gray-200" alt="Image Preview">
+                    </div>
+                </div>
+
+                <!-- 2. Photoshoot Prompt -->
+                <div class="p-6 bg-white shadow rounded-xl">
+                    <label for="promptInput" class="block text-sm font-medium text-gray-700 mb-2">2. Describe the Photoshoot Scene</label>
+                    <textarea id="promptInput" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Example: 'A high-fashion female model wearing the garment, standing on a white seamless background with professional studio lighting, e-commerce style.'"></textarea>
+                </div>
+
+                <!-- 3. Actions -->
+                <div class="space-y-4 pt-4">
+                    <button id="generateBtn" onclick="handleGenerate('studio')" class="w-full flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out disabled:opacity-50">
+                        <span id="generateText">Generate Studio Photoshoot</span>
+                        <div id="generateLoader" class="loader w-5 h-5 border-4 border-gray-200 border-solid rounded-full hidden ml-3"></div>
+                    </button>
+
+                    <button id="removeBgBtn" onclick="handleGenerate('remove_bg')" class="w-full flex items-center justify-center px-4 py-3 border border-blue-600 text-base font-medium rounded-full text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out disabled:opacity-50">
+                        <span id="removeBgText">Remove Background (Pure White)</span>
+                        <div id="removeBgLoader" class="loader w-5 h-5 border-4 border-gray-200 border-solid rounded-full hidden ml-3"></div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Result Area (Columns 2 & 3) -->
+            <div class="lg:col-span-2">
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-inner min-h-[500px] flex flex-col">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Generated Product Image</h2>
+                    <div id="resultContainer" class="flex-grow flex items-center justify-center bg-gray-100 rounded-lg overflow-hidden relative">
+                        <img id="resultImage" class="max-w-full max-h-full object-contain" alt="Generated Image">
+                        <p id="placeholderText" class="text-gray-400 text-center p-8">
+                            Upload an image and click a button to see your professional photoshoot here.
+                        </p>
+                        <div id="globalLoader" class="hidden absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center">
+                            <div class="loader w-10 h-10 border-8 border-gray-200 border-solid rounded-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Download Button -->
+                    <button id="downloadBtn" onclick="downloadResult()" class="mt-4 px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition duration-150 ease-in-out hidden self-start disabled:opacity-50">
+                        Download Image
+                    </button>
+
+                    <div id="messageBox" class="mt-4 p-3 bg-red-100 text-red-700 rounded-lg border border-red-300 hidden" role="alert"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- API Configuration ---
+        const MODEL_NAME = "gemini-2.5-flash-image-preview";
+        const API_KEY = ""; // Canvas will automatically provide the key if this is an empty string
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+        const MAX_RETRIES = 5;
+
+        // --- DOM Elements ---
+        const fileInput = document.getElementById('fileInput');
+        const promptInput = document.getElementById('promptInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const resultImage = document.getElementById('resultImage');
+        const placeholderText = document.getElementById('placeholderText');
+        const globalLoader = document.getElementById('globalLoader');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const messageBox = document.getElementById('messageBox');
+
+        const generateBtn = document.getElementById('generateBtn');
+        const removeBgBtn = document.getElementById('removeBgBtn');
+
+        let base64Image = null;
+        let imageMimeType = null;
+        let lastResultBlob = null; // Store the last successful blob for download
+
+        /**
+         * Converts the selected file to a Base64 string and updates the preview.
+         */
+        function previewImage() {
+            const file = fileInput.files[0];
+            if (!file) {
+                base64Image = null;
+                imageMimeType = null;
+                imagePreviewContainer.classList.add('hidden');
+                return;
+            }
+
+            // Simple validation
+            if (!file.type.startsWith('image/')) {
+                showMessage("Please upload a valid image file.", 'error');
+                fileInput.value = '';
+                return;
+            }
+
+            imageMimeType = file.type;
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                base64Image = e.target.result.split(',')[1];
+                imagePreviewContainer.classList.remove('hidden');
+            };
+
+            reader.onerror = function() {
+                showMessage("Error reading file.", 'error');
+            }
+
+            reader.readAsDataURL(file);
+        }
+
+        /**
+         * Shows an error or success message.
+         * @param {string} message - The message to display.
+         * @param {string} type - 'error' or 'success'.
+         */
+        function showMessage(message, type = 'error') {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'border-red-300', 'bg-green-100', 'text-green-700', 'border-green-300');
+            if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'text-red-700', 'border-red-300');
+            } else {
+                messageBox.classList.add('bg-green-100', 'text-green-700', 'border-green-300');
+            }
+        }
+
+        /**
+         * Clears all status and messages.
+         */
+        function clearStatus() {
+            messageBox.classList.add('hidden');
+            resultImage.src = '';
+            resultImage.classList.add('hidden');
+            placeholderText.classList.remove('hidden');
+            downloadBtn.classList.add('hidden');
+            lastResultBlob = null;
+        }
+
+        /**
+         * Handles the click event for both generation modes.
+         * @param {string} mode - 'studio' or 'remove_bg'
+         */
+        async function handleGenerate(mode) {
+            clearStatus();
+
+            if (!base64Image) {
+                showMessage("Please upload a cloth image first.", 'error');
+                return;
+            }
+
+            let userPrompt = promptInput.value.trim();
+            let systemInstruction = "";
+            let promptText = "";
+
+            if (mode === 'studio') {
+                if (!userPrompt) {
+                    showMessage("Please provide a description for the photoshoot scene.", 'error');
+                    return;
+                }
+                // Instructions for a professional studio shot
+                systemInstruction = "You are an expert E-Commerce product photography AI. Your task is to take the provided raw clothing image and generate a high-quality, professional studio photoshoot. The output should be a photorealistic image with a virtual model wearing the garment. The lighting must be soft, even, and studio-quality. The background should be clean, such as solid white or neutral gray.";
+                promptText = `Using the uploaded clothing item, generate a photorealistic image of a model wearing it based on this scene description: "${userPrompt}". The final image must be suitable for major e-commerce platforms (Amazon, Flipkart).`;
+            } else if (mode === 'remove_bg') {
+                // Instructions for background removal
+                systemInstruction = "You are a specialized background removal AI. Your only task is to precisely isolate the main subject (the clothing item) from the provided image and generate a new image with a pure white background. The output must have clean edges and be ready for e-commerce listing.";
+                promptText = "Remove the existing background from the image and replace it with a pure white background (#FFFFFF). The subject must be cleanly cropped.";
+            }
+
+            // Set up UI for loading state
+            setLoading(true, mode);
+
+            try {
+                const resultBase64 = await callGeminiAPI(promptText, systemInstruction);
+                if (resultBase64) {
+                    const imageUrl = `data:image/png;base64,${resultBase64}`;
+                    resultImage.src = imageUrl;
+                    resultImage.onload = () => {
+                        resultImage.classList.remove('hidden');
+                        placeholderText.classList.add('hidden');
+                        downloadBtn.classList.remove('hidden');
+                    };
+
+                    // Convert base64 to Blob for download functionality
+                    lastResultBlob = await fetch(imageUrl).then(res => res.blob());
+                    showMessage("Image generated successfully! Click 'Download Image' to save.", 'success');
+                } else {
+                    showMessage("Generation failed. No image data was returned. Check your prompt or image.", 'error');
+                }
+            } catch (error) {
+                console.error("API Call Failed:", error);
+                showMessage(`An error occurred: ${error.message}. Please try again.`, 'error');
+            } finally {
+                setLoading(false, mode);
+            }
+        }
+
+        /**
+         * Calls the Gemini API with retry logic (exponential backoff).
+         * @param {string} prompt - The user prompt for the model.
+         * @param {string} systemInstruction - The system instruction for guiding the model.
+         * @returns {Promise<string|null>} Base64 data of the generated image or null on failure.
+         */
+        async function callGeminiAPI(prompt, systemInstruction) {
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        {
+                            inlineData: {
+                                mimeType: imageMimeType,
+                                data: base64Image
+                            }
+                        }
+                    ]
+                }],
+                generationConfig: {
+                    responseModalities: ['TEXT', 'IMAGE']
+                },
+                systemInstruction: {
+                    parts: [{ text: systemInstruction }]
+                }
+            };
+
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`HTTP error ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
+                    }
+
+                    const result = await response.json();
+                    const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+
+                    if (base64Data) {
+                        return base64Data;
+                    }
+                    // If response is successful but no image part found, treat as failure and exit loop
+                    return null;
+
+                } catch (error) {
+                    if (i === MAX_RETRIES - 1) {
+                        throw error; // Throw the error if it was the final attempt
+                    }
+                    // Exponential backoff
+                    const delay = Math.pow(2, i) * 1000 + (Math.random() * 1000); // 1s, 2s, 4s... + jitter
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+            return null; // Should be unreachable
+        }
+
+        /**
+         * Toggles the loading state of the UI.
+         * @param {boolean} isLoading - Whether the app is currently loading.
+         * @param {string} mode - 'studio' or 'remove_bg' to specify which button to update.
+         */
+        function setLoading(isLoading, mode) {
+            const button = mode === 'studio' ? generateBtn : removeBgBtn;
+            const loader = mode === 'studio' ? document.getElementById('generateLoader') : document.getElementById('removeBgLoader');
+            const textSpan = mode === 'studio' ? document.getElementById('generateText') : document.getElementById('removeBgText');
+
+            generateBtn.disabled = isLoading;
+            removeBgBtn.disabled = isLoading;
+            globalLoader.classList.toggle('hidden', !isLoading);
+            loader.classList.toggle('hidden', !isLoading);
+            textSpan.textContent = isLoading ? (mode === 'studio' ? 'Generating...' : 'Removing...') : (mode === 'studio' ? 'Generate Studio Photoshoot' : 'Remove Background (Pure White)');
+        }
+
+        /**
+         * Initiates the download of the last generated image.
+         */
+        function downloadResult() {
+            if (!lastResultBlob) {
+                showMessage("No image to download. Generate an image first.", 'error');
+                return;
+            }
+
+            const url = URL.createObjectURL(lastResultBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ai_product_image.png'; // Use PNG for potential transparency
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize/Clear on load
+        document.addEventListener('DOMContentLoaded', clearStatus);
+
+    </script>
+</body>
+</html>
